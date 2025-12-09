@@ -2,26 +2,29 @@
   description = "Rose Pine themed BreezeX Cursor for Hyprcursor";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    utils.url = "github:numtide/flake-utils";
-
-    hyprlang = {
-      url = "github:hyprwm/hyprlang";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, utils, hyprlang } @inputs:
-    utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-      in
-      {
-        packages.default = pkgs.callPackage ./nix/default.nix { nixpkgs = pkgs; };
-        environment.variables = {
-          HYPRCURSOR_THEME = "rose-pine-hyprcursor";
-        };
+  outputs = inputs@{ self, nixpkgs, ... }: let
+    forAllSystems = f: nixpkgs.lib.genAttrs [
+      "x86_64-linux"
+      "aarch64-linux"
+      "aarch64-darwin"
+    ] (system: f system (
+      import nixpkgs { inherit system; }
+    ));
 
-        formatter = nixpkgs.${system}.nixpkgs-fmt;
+  in {
+    devShells = forAllSystems (_: pkgs: with pkgs; {
+      default = (mkShell {
+        packages = [ hyprcursor ];
       });
+    });
+
+    packages = forAllSystems (_: pkgs: {
+      default = pkgs.callPackage ./default.nix { };
+    });
+
+    formatter = forAllSystems (_: pkgs: pkgs.nixfmt-rfc-style);
+  };
 }
